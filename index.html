@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Simulador interativo do decodificador de código 2 entre 5 para código Johnson, com montagem passo a passo na protoboard. IFMT Campus Cuiabá, Eletrônica Digital.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style><title>Decodificador 2 entre 5 → Johnson</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Open+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: bancada de laboratório — faixa de controle (entradas · estado · saídas), esquema de portas ao vivo, depois expressões e tabela lado a lado */
+:root {
+  /* paleta IFMT: verde institucional (nível lógico 1) + vermelho do círculo (LEDs) */
+  --bg: #F2F6F3;
+  --panel: #FFFFFF;
+  --ink: #1B2420;
+  --muted: #59685F;
+  --line: #D2DCD4;
+  --lo: #B4C0B8;
+  --hi: #2F9E41;
+  --on-hi: #FFFFFF;
+  --gate-on: #DDF2E1;
+  --hi-soft: #D2ECD7;
+  --led: #CD191E;
+  --led-soft: #F7D2D3;
+  --ok: #2B8A3E;
+  --ok-soft: #DDF2E1;
+  --warn: #A86A12;
+  --warn-soft: #F6E7CC;
+  --f-display: "Open Sans", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Open Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1511; --panel: #161E19; --ink: #E4ECE6; --muted: #8FA196; --line: #2B3830;
+    --lo: #3C4A42; --hi: #4CC062; --on-hi: #0F1511; --gate-on: #183A21; --hi-soft: #1D4226;
+    --led: #F0474C; --led-soft: #4A1B1D; --ok: #4CC062; --ok-soft: #183A21; --warn: #E3AA4E; --warn-soft: #3A2C14;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1511; --panel: #161E19; --ink: #E4ECE6; --muted: #8FA196; --line: #2B3830;
+  --lo: #3C4A42; --hi: #4CC062; --on-hi: #0F1511; --gate-on: #183A21; --hi-soft: #1D4226;
+  --led: #F0474C; --led-soft: #4A1B1D; --ok: #4CC062; --ok-soft: #183A21; --warn: #E3AA4E; --warn-soft: #3A2C14;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px 32px; align-items: end; padding-bottom: 18px; border-bottom: 3px solid var(--hi); }
+@media (max-width: 760px) { header { grid-template-columns: minmax(0,1fr); } }
+.head-main { display: grid; gap: 8px; min-width: 0; }
+.eyebrow { font: 600 12px/1.2 var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--hi); display: flex; align-items: center; gap: 8px; }
+.eyebrow::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--led); flex: none; }
+h1 { font: 800 clamp(26px, 4vw, 40px)/1.1 var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -.015em; }
+h1 .arrow { color: var(--led); }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+.credits { display: grid; grid-template-columns: auto auto; gap: 6px 14px; margin: 0; font-size: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; }
+.credits dt { font: 600 11px/1.6 var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.credits dd { margin: 0; font-weight: 600; }
+h2 { font: 600 13px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--hi); outline-offset: 2px; }
+
+/* faixa de controle */
+.bench { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+@media (max-width: 880px) { .bench { grid-template-columns: minmax(0,1fr); } }
+
+.switches { display: flex; gap: 10px; justify-content: space-between; }
+.sw { background: none; border: 0; padding: 0; cursor: pointer; display: grid; justify-items: center; gap: 6px; flex: 1; }
+.sw .slot { width: 34px; height: 64px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); position: relative; transition: background .15s; }
+.sw .knob { position: absolute; left: 4px; right: 4px; height: 26px; bottom: 4px; border-radius: 4px; background: var(--lo); transition: bottom .15s, background .15s; }
+.sw[aria-pressed="true"] .slot { background: var(--hi-soft); border-color: var(--hi); }
+.sw[aria-pressed="true"] .knob { bottom: 32px; background: var(--hi); }
+.sw .lbl { font: 600 18px/1 var(--f-display); }
+.sw .bit { font: 500 13px/1 var(--f-mono); color: var(--muted); }
+.sw[aria-pressed="true"] .bit { color: var(--hi); }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+kbd { font: 500 11px/1 var(--f-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; background: var(--bg); }
+
+.status { justify-items: center; text-align: center; }
+.digit { font: 700 96px/0.9 var(--f-display); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.digit.na { color: var(--muted); }
+.code-line { font: 500 15px/1.3 var(--f-mono); color: var(--muted); }
+.code-line b { color: var(--ink); font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--f-mono); padding: 6px 10px; border-radius: 999px; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.ok { color: var(--ok); background: var(--ok-soft); }
+.chip.warn { color: var(--warn); background: var(--warn-soft); }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.btn { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--hi); color: var(--on-hi); border-color: var(--hi); font-weight: 600; }
+.btn.primary:hover { opacity: .9; }
+
+.leds { display: flex; gap: 10px; justify-content: space-between; }
+.led { display: grid; justify-items: center; gap: 6px; flex: 1; }
+.led .bulb { width: 34px; height: 34px; border-radius: 50%; background: var(--lo); border: 2px solid var(--line); transition: background .15s, box-shadow .15s; }
+.led.on .bulb { background: var(--led); border-color: var(--led); box-shadow: 0 0 0 5px var(--led-soft), 0 0 18px var(--led); }
+.led .lbl { font: 700 14px/1 var(--f-display); }
+.led .bit { font: 500 13px/1 var(--f-mono); color: var(--muted); }
+.led.on .bit { color: var(--led); }
+.johnson-bar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.johnson-bar span { height: 8px; border-radius: 2px; background: var(--line); }
+.johnson-bar span.on { background: var(--hi); }
+.johnson-bar span.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+/* esquema */
+.schematic-scroll { overflow-x: auto; margin: 0 -6px; padding: 0 6px; }
+.schematic-scroll svg { display: block; width: 100%; min-width: 720px; height: auto; }
+svg text { font-family: var(--f-mono); fill: var(--ink); }
+svg .w { stroke: var(--lo); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+svg .w.on { stroke: var(--hi); stroke-width: 2.6; }
+svg .dot { fill: var(--lo); }
+svg .dot.on { fill: var(--hi); }
+svg .g { fill: var(--panel); stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; }
+svg .g.on { fill: var(--gate-on); stroke: var(--hi); }
+svg .inv { fill: var(--panel); stroke: var(--ink); stroke-width: 1.4; }
+svg .inv.on { stroke: var(--hi); }
+svg .ledc { fill: var(--lo); }
+svg .ledc.on { fill: var(--led); }
+svg .term-lbl { font-size: 11px; fill: var(--muted); }
+svg .out-lbl { font-size: 15px; font-weight: 600; }
+svg .in-lbl { font-size: 15px; font-weight: 600; }
+svg .val { font-size: 12px; fill: var(--muted); }
+svg .val.on { fill: var(--hi); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 22px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* detalhes */
+.detail { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); gap: 16px; }
+@media (max-width: 880px) { .detail { grid-template-columns: minmax(0,1fr); } }
+.exprs { display: grid; gap: 4px; }
+.expr { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; font: 500 16px/1.3 var(--f-mono); }
+.expr:nth-child(odd) { background: var(--bg); }
+.expr .name { font-weight: 600; }
+.expr .t { padding: 1px 5px; border-radius: 4px; transition: background .15s, color .15s; }
+.expr .t.on { background: var(--hi-soft); color: var(--hi); }
+.expr .plus { color: var(--muted); }
+.expr .res { font-weight: 600; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 5px; background: var(--line); color: var(--muted); }
+.expr .res.on { background: var(--hi); color: var(--on-hi); }
+
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { font: 500 11px/1.2 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { font: 400 14px/1 var(--f-mono); padding: 0; border-bottom: 1px solid var(--line); }
+td button { all: unset; display: block; width: 100%; padding: 8px 10px; cursor: pointer; box-sizing: border-box; }
+tbody tr:hover td { background: var(--bg); }
+tbody tr.cur td { background: var(--hi-soft); }
+tbody tr.cur td:first-child button { color: var(--hi); font-weight: 600; }
+td .pass { color: var(--ok); font-weight: 600; }
+td .fail { color: var(--hi); font-weight: 600; }
+.summary { font-size: 13px; color: var(--muted); margin: 0; }
+.summary b { color: var(--ok); }
+
+.bom { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); gap: 16px; }
+@media (max-width: 880px) { .bom { grid-template-columns: minmax(0,1fr); } }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ic { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 4px; background: var(--bg); position: relative; }
+.ic::before { content: ""; position: absolute; top: -1px; left: 50%; width: 14px; height: 7px; margin-left: -7px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 7px 7px; background: var(--panel); }
+.ic .pn { font: 600 18px/1 var(--f-mono); }
+.ic .qty { font: 500 12px/1 var(--f-mono); color: var(--hi); }
+.ic .desc { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.note { border-left: 3px solid var(--warn); padding: 4px 0 4px 14px; display: grid; gap: 8px; }
+.note p, .note ul { margin: 0; font-size: 14px; }
+.note ul { padding-left: 18px; display: grid; gap: 4px; }
+.note code { font-family: var(--f-mono); font-size: 13px; background: var(--warn-soft); padding: 1px 4px; border-radius: 3px; }
+footer { font-size: 12.5px; color: var(--muted); }
+.sec-head { display: flex; justify-content: space-between; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
+h3 { font: 700 15px/1.3 var(--f-display); margin: 0; }
+.shot { margin: 0; display: grid; gap: 8px; }
+.shot-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #FFFFFF; }
+.shot img { display: block; width: 100%; min-width: 640px; height: auto; max-width: none; }
+.shot figcaption { font-size: 13px; color: var(--muted); }
+.mount { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); gap: 20px; }
+@media (max-width: 880px) { .mount { grid-template-columns: minmax(0,1fr); } }
+.steps, .netlist { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.steps ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+.steps code, .file code { font-family: var(--f-mono); font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); padding: 0 4px; border-radius: 3px; overflow-wrap: anywhere; }
+.runs { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 6px; }
+.run { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; display: grid; gap: 2px; background: var(--bg); }
+.run .d { font: 700 16px/1 var(--f-display); display: flex; justify-content: space-between; }
+.run .d span { color: var(--ok); font-size: 13px; }
+.run .b { font: 500 11.5px/1.2 var(--f-mono); color: var(--muted); }
+@media (max-width: 480px) { .runs { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+table.nets td { padding: 7px 10px; font-size: 13px; line-height: 1.35; }
+table.nets td:first-child { font-weight: 600; white-space: nowrap; }
+table.nets td i { font-style: normal; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--line); }
+.file { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 10px; }
+.file summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.file[open] { gap: 10px; }
+.file pre { margin: 8px 0 0; max-height: 320px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font: 400 12px/1.45 var(--f-mono); }
+.file .btn { justify-self: start; margin-top: 8px; }
+.file .shot { margin-top: 10px; }
+
+/* protoboard interativa */
+.builder { display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1000px) { .builder { grid-template-columns: minmax(0, 1fr); } }
+.bpanel { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.bnav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bnav span { font-size: 13px; color: var(--muted); }
+.bnav .btn { min-width: 44px; }
+.btn:disabled { opacity: .4; cursor: default; }
+.bdesc { margin: 0; font-size: 14px; }
+.blist { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+.blist li { padding: 5px 8px; border-radius: 5px; background: var(--bg); line-height: 1.35; }
+.blist li i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--line); }
+.blist li b { margin-right: 4px; }
+.bsteps { margin: 4px 0 0; padding: 0; list-style: none; counter-reset: st; display: grid; gap: 2px; border-top: 1px solid var(--line); padding-top: 10px; }
+.bsteps li { counter-increment: st; }
+.bsteps button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; gap: 10px; align-items: center; padding: 5px 8px; border-radius: 5px; font-size: 13.5px; color: var(--muted); }
+.bsteps button::before { content: counter(st); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 600 11px/1 var(--f-mono); border: 1px solid var(--line); flex: none; }
+.bsteps button:hover { background: var(--bg); }
+.bsteps button:focus-visible { outline: 2px solid var(--hi); }
+.bsteps li.done button { color: var(--ink); }
+.bsteps li.done button::before { background: var(--hi-soft); border-color: var(--hi); color: var(--hi); }
+.bsteps li.cur button { color: var(--ink); font-weight: 600; background: var(--hi-soft); }
+.bsteps li.cur button::before { background: var(--hi); border-color: var(--hi); color: var(--on-hi); }
+.bview { min-width: 0; display: grid; gap: 8px; }
+.bscroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #FFFFFF; }
+#board { display: block; width: 100%; min-width: 760px; height: auto; }
+#board text { font-family: var(--f-mono); fill: #333; }
+#board .bp { fill: #FFFFFF; stroke: #8A8A8A; stroke-width: 1.2; }
+#board .bh { fill: #9A9A9A; stroke: #555; stroke-width: .8; }
+#board .bn { font-size: 10px; fill: #444; }
+#board .bt { font: 700 12px var(--f-body); fill: #111; }
+#board .bt.vcc { fill: #D01010; }
+#board .bic { font-size: 11px; fill: #EEE; font-weight: 600; }
+#board .bsw { fill: #FFF; stroke: #D01010; stroke-width: 1.5; }
+#board .btog { fill: #FFF; stroke: #D01010; stroke-width: 2; }
+#board .bled { fill: #7A0A0A; stroke: #4A0000; stroke-width: 1; transition: fill .15s; }
+#board .bled.on { fill: #FF2A2A; filter: drop-shadow(0 0 4px #FF4040); }
+#board .swc { cursor: pointer; }
+#board .swc:hover .btog { stroke-width: 3; }
+#board .wo { fill: none; stroke: rgba(0,0,0,.35); stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
+#board .wc { fill: none; stroke-width: 3.2; stroke-linejoin: round; stroke-linecap: round; }
+#board .bw { transition: opacity .2s; }
+#board .bw:hover .wc { stroke-width: 5; }
+#board .fut { display: none; }
+#board .past { opacity: .4; }
+#board .low { opacity: .22; }
+#board .new .wc, #board .new .wo { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .9s ease-out forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { #board .new .wc, #board .new .wo { animation: none; stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="head-main">
+      <span class="eyebrow">IFMT Campus Cuiabá · Engenharia da Computação · Eletrônica Digital</span>
+      <h1>Decodificador 2 entre 5 <span class="arrow">→</span> Johnson</h1>
+      <p>Mude as chaves A–E e veja o sinal passar pelas portas até os LEDs de saída. As expressões são as do relatório, simplificadas por mapa de Karnaugh com as 22 combinações inválidas como indiferentes.</p>
+    </div>
+    <dl class="credits">
+      <dt>Alunos</dt><dd>Ana Clara Rocha<br>Pedro Luiz</dd>
+      <dt>Professor</dt><dd>Edelson Duarte</dd>
+    </dl>
+  </header>
+
+  <section class="bench" aria-label="Bancada">
+    <div class="card">
+      <h2>Entradas · código 2 entre 5</h2>
+      <div class="switches" id="switches"></div>
+      <p class="hint">Teclado: <kbd>A</kbd>–<kbd>E</kbd> alternam as chaves, <kbd>0</kbd>–<kbd>9</kbd> carregam um dígito.</p>
+    </div>
+
+    <div class="card status">
+      <h2>Dígito decodificado</h2>
+      <div class="digit" id="digit">3</div>
+      <div class="code-line" id="codeLine"></div>
+      <span class="chip ok" id="validity">Entrada válida</span>
+      <div class="controls">
+        <button class="btn" id="prev" type="button">◀ Anterior</button>
+        <button class="btn primary" id="play" type="button">Percorrer 0–9</button>
+        <button class="btn" id="next" type="button">Próximo ▶</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Saídas · código Johnson</h2>
+      <div class="leds" id="leds"></div>
+      <div class="johnson-bar" id="jbar" aria-hidden="true"></div>
+      <p class="hint" id="johnsonText"></p>
+    </div>
+  </section>
+
+  <section class="card" aria-label="Esquema de portas">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">
+      <h2>Esquema de portas · ao vivo</h2>
+      <div class="legend">
+        <span><i style="background:var(--hi)"></i>nível 1</span>
+        <span><i style="background:var(--lo)"></i>nível 0</span>
+        <span>● ligação no barramento</span>
+      </div>
+    </div>
+    <div class="schematic-scroll"><svg id="sch" role="img" aria-label="Esquema lógico: barramentos A a E e seus complementos, portas AND e OR para S4 a S0"></svg></div>
+  </section>
+
+  <section class="detail">
+    <div class="card">
+      <h2>Expressões simplificadas</h2>
+      <div class="exprs" id="exprs"></div>
+      <p class="hint">Termo destacado = produto em nível 1 para a entrada atual.</p>
+    </div>
+    <div class="card">
+      <h2>Tabela-verdade · verificação</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Dec</th><th>A B C D E</th><th>Johnson esperado</th><th>Circuito</th><th></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p class="summary" id="summary"></p>
+    </div>
+  </section>
+
+  <section class="card" aria-label="Montagem">
+    <div class="sec-head">
+      <h2>Montagem no Constructor Virtual de Circuitos</h2>
+      <span class="chip ok">Testado no programa · 10 de 10 dígitos corretos</span>
+    </div>
+
+    <div class="builder">
+      <div class="bpanel">
+        <div class="bnav">
+          <button class="btn" id="bPrev" type="button" aria-label="Passo anterior">◀</button>
+          <span id="bCount" class="mono">Passo 1 de 9</span>
+          <button class="btn primary" id="bNext" type="button" aria-label="Próximo passo">▶</button>
+        </div>
+        <h3 id="bTitle">Placas</h3>
+        <p id="bDesc" class="bdesc"></p>
+        <ul id="bList" class="blist"></ul>
+        <ol id="bSteps" class="bsteps"></ol>
+      </div>
+      <div class="bview">
+        <div class="bscroll"><svg id="board" viewBox="0 18 990 545" role="img" aria-label="Protoboard do Constructor Virtual com a montagem do decodificador"></svg></div>
+        <p class="hint" id="bHint"></p>
+      </div>
+    </div>
+
+    <details class="file">
+      <summary>Captura do Constructor real (dígito 3)</summary>
+      <figure class="shot">
+        <div class="shot-scroll"><img src="circuito-constructor/montagem-constructor.png" width="985" height="530" alt="Protoboard no Constructor Virtual com fonte DC, seis CIs (74LS04, dois 74LS08, 74LS11, dois 74LS32), placa de interruptores embaixo e placa de LEDs em cima. Chaves B e E acionadas; LEDs 3, 4 e 5 acesos."></div>
+        <figcaption>Constructor 0.9.7a simulando o dígito 3: chaves B e E acionadas (01001) e LEDs S2, S1 e S0 acesos (Johnson 00111).</figcaption>
+      </figure>
+    </details>
+
+    <div class="mount">
+      <div class="steps">
+        <h3>Como abrir</h3>
+        <ol>
+          <li>No Constructor, vá em <b>Circuitos → Abrir</b> e escolha <code>circuito-constructor/decodificador-2de5-johnson.txt</code>.</li>
+          <li>Ligue a chave da <b>fonte DC</b> (o LED vermelho da fonte acende).</li>
+          <li>As 5 primeiras chaves da placa de interruptores são <b>A B C D E</b>, da esquerda para a direita. Clique para acionar: com o bloco preto embaixo, a entrada vale 1.</li>
+          <li>Os 5 primeiros LEDs da placa de cima são <b>S4 S3 S2 S1 S0</b>.</li>
+          <li>Para gerar o arquivo de novo, rode <code>circuito-constructor/gerar-circuito.ps1</code> no PowerShell.</li>
+        </ol>
+        <h3>Teste no programa</h3>
+        <div class="runs" id="runs"></div>
+        <p class="hint">Cada dígito foi aplicado nas chaves do Constructor e os LEDs foram lidos da tela.</p>
+      </div>
+      <div class="netlist">
+        <h3>Ligações na protoboard</h3>
+        <div class="table-scroll">
+          <table class="nets">
+            <thead><tr><th>Sinal</th><th>Sai de</th><th>Vai para</th></tr></thead>
+            <tbody id="netBody"></tbody>
+          </table>
+        </div>
+        <p class="hint">Em todos os CIs: pino 14 no VCC (barramento vermelho) e pino 7 no GND (barramento azul). Portas sem uso ficam desligadas.</p>
+      </div>
+    </div>
+
+    <div class="bom">
+      <div class="chips">
+        <div class="ic"><span class="pn">7404</span><span class="qty">U1 · col. 6–12</span><span class="desc">6 inversores. Usa 5: A′ B′ C′ D′ E′.</span></div>
+        <div class="ic"><span class="pn">7408</span><span class="qty">U2 · col. 15–21</span><span class="desc">AND 2 entradas: D′E′, AB′, A′B, A′E′.</span></div>
+        <div class="ic"><span class="pn">7408</span><span class="qty">U3 · col. 24–30</span><span class="desc">AND 2 entradas: A′D′ (1 porta usada).</span></div>
+        <div class="ic"><span class="pn">7411</span><span class="qty">U4 · col. 33–39</span><span class="desc">AND 3 entradas: A′BE′, AB′C′, EC′D′.</span></div>
+        <div class="ic"><span class="pn">7432</span><span class="qty">U5 · col. 42–48</span><span class="desc">OR 2 entradas: S4, S3, S2, S1.</span></div>
+        <div class="ic"><span class="pn">7432</span><span class="qty">U6 · col. 51–57</span><span class="desc">OR 2 entradas: S0 (1 porta usada).</span></div>
+      </div>
+      <div class="note">
+        <p><strong>Atenção ao diagrama da pág. 9 do relatório.</strong> Ele não bate com as expressões em três pontos:</p>
+        <ul>
+          <li>S3, 2º AND: recebe <code>A</code> no lugar de <code>A′</code>.</li>
+          <li>S1, 1º AND: recebe <code>A</code> no lugar de <code>A′</code>; 2º AND recebe <code>D</code> no lugar de <code>D′</code>.</li>
+          <li>S2, 2º AND: o inversor está na linha de A, mas rotulado <code>B′</code>.</li>
+        </ul>
+        <p>Este simulador e a montagem seguem as expressões, que passam nos 10 testes. O termo A′E′ é comum a S1 e S0 e usa uma única porta (U2).</p>
+      </div>
+    </div>
+
+    <details class="file">
+      <summary>Arquivo do circuito <code>decodificador-2de5-johnson.txt</code> (formato 0.9.7)</summary>
+      <p class="hint">Se não tiver o arquivo, copie o texto abaixo, salve como <code>.txt</code> e abra no Constructor.</p>
+      <button class="btn" id="copyFile" type="button">Copiar conteúdo</button>
+      <pre id="filePre" tabindex="0"></pre>
+    </details>
+  </section>
+
+  <footer>Ana Clara Rocha e Pedro Luiz · Prof. Edelson Duarte · IFMT Campus Cuiabá Cel. Octayde Jorge da Silva, 2026. Total: 6 CIs TTL. Entradas fora do código (≠ dois bits em 1) produzem uma saída qualquer, pois foram tratadas como indiferentes (X) na simplificação.</footer>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var VARS = ['A', 'B', 'C', 'D', 'E'];
+  var CODES = ['00011','00101','00110','01001','01010','01100','10001','10010','10100','11000'];
+  var JOHN  = ['00000','00001','00011','00111','01111','11111','11110','11100','11000','10000'];
+  var OUTS = [
+    { name: 'S4', terms: [['A'], ["D'", "E'"]] },
+    { name: 'S3', terms: [['A', "B'"], ["A'", 'B', "E'"]] },
+    { name: 'S2', terms: [["A'", 'B'], ['A', "B'", "C'"]] },
+    { name: 'S1', terms: [["A'", "E'"], ['E', "C'", "D'"]] },
+    { name: 'S0', terms: [["A'", "D'"], ["A'", "E'"]] }
+  ];
+  var s = { A: 0, B: 1, C: 0, D: 0, E: 1 }; // dígito 3, o teste do relatório
+
+  function litVal(st, l) { var v = st[l[0]]; return l.length > 1 ? 1 - v : v; }
+  function evaluate(st) {
+    var sig = {};
+    VARS.forEach(function (v) { sig[v] = st[v]; sig[v + "'"] = 1 - st[v]; });
+    OUTS.forEach(function (o) {
+      var any = 0;
+      o.terms.forEach(function (t, i) {
+        var v = t.every(function (l) { return litVal(st, l) === 1; }) ? 1 : 0;
+        sig[o.name + '_' + i] = v; if (v) any = 1;
+      });
+      sig[o.name] = any;
+    });
+    return sig;
+  }
+  function fromCode(code) { var st = {}; VARS.forEach(function (v, i) { st[v] = +code[i]; }); return st; }
+  function toCode(st) { return VARS.map(function (v) { return st[v]; }).join(''); }
+  function outCode(sig) { return OUTS.map(function (o) { return sig[o.name]; }).join(''); }
+  function pretty(l) { return l.replace("'", '′'); }
+
+  /* ---------- switches & LEDs ---------- */
+  var swWrap = document.getElementById('switches');
+  VARS.forEach(function (v) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'sw'; b.id = 'sw-' + v; b.setAttribute('aria-label', 'Chave ' + v);
+    b.innerHTML = '<span class="lbl">' + v + '</span><span class="slot"><span class="knob"></span></span><span class="bit">0</span>';
+    b.addEventListener('click', function () { stop(); s[v] = 1 - s[v]; render(); });
+    swWrap.appendChild(b);
+  });
+  var ledWrap = document.getElementById('leds');
+  OUTS.forEach(function (o) {
+    var d = document.createElement('div');
+    d.className = 'led'; d.id = 'led-' + o.name;
+    d.innerHTML = '<span class="bulb"></span><span class="lbl">' + o.name + '</span><span class="bit">0</span>';
+    ledWrap.appendChild(d);
+  });
+  var jbar = document.getElementById('jbar');
+  for (var k = 0; k < 10; k++) jbar.appendChild(document.createElement('span'));
+
+  /* ---------- expressions ---------- */
+  var exWrap = document.getElementById('exprs');
+  OUTS.forEach(function (o) {
+    var row = document.createElement('div'); row.className = 'expr';
+    var html = '<span class="name">' + o.name + '</span><span>';
+    o.terms.forEach(function (t, i) {
+      if (i) html += '<span class="plus"> + </span>';
+      html += '<span class="t" data-sig="' + o.name + '_' + i + '">' + t.map(pretty).join('') + '</span>';
+    });
+    html += '</span><span class="res" data-sig="' + o.name + '">0</span>';
+    row.innerHTML = html; exWrap.appendChild(row);
+  });
+
+  /* ---------- truth table ---------- */
+  var tbody = document.getElementById('tbody'); var passCount = 0;
+  CODES.forEach(function (c, d) {
+    var got = outCode(evaluate(fromCode(c))); var ok = got === JOHN[d]; if (ok) passCount++;
+    var tr = document.createElement('tr'); tr.dataset.code = c;
+    var cells = [d, c.split('').join(' '), JOHN[d], got, ok ? '<span class="pass">✓</span>' : '<span class="fail">✗</span>'];
+    tr.innerHTML = cells.map(function (x) { return '<td><button type="button" tabindex="-1">' + x + '</button></td>'; }).join('');
+    tr.querySelector('button').tabIndex = 0;
+    tr.querySelector('button').setAttribute('aria-label', 'Carregar dígito ' + d);
+    tr.addEventListener('click', function () { stop(); s = fromCode(c); render(); });
+    tbody.appendChild(tr);
+  });
+  document.getElementById('summary').innerHTML = '<b>' + passCount + ' de 10</b> dígitos conferem: a saída do circuito é igual ao código Johnson esperado.';
+
+  /* ---------- schematic ---------- */
+  var NS = 'http://www.w3.org/2000/svg';
+  var svg = document.getElementById('sch');
+  var layers = { wires: mk('g', {}, svg), parts: mk('g', {}, svg), text: mk('g', {}, svg) };
+  function mk(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var a in attrs) e.setAttribute(a, attrs[a]);
+    if (parent) parent.appendChild(e); return e;
+  }
+  function wire(d, sig) { return mk('path', { d: d, 'class': 'w', 'data-sig': sig }, layers.wires); }
+  function dot(x, y, sig) { return mk('circle', { cx: x, cy: y, r: 3.6, 'class': 'dot', 'data-sig': sig }, layers.parts); }
+  function txt(x, y, str, cls, anchor, sig) {
+    var t = mk('text', { x: x, y: y, 'class': cls || '', 'text-anchor': anchor || 'middle' }, layers.text);
+    if (sig) t.setAttribute('data-sig', sig);
+    t.textContent = str; return t;
+  }
+
+  var RAILS = []; VARS.forEach(function (v) { RAILS.push(v, v + "'"); });
+  var RX = {}; RAILS.forEach(function (r, i) { RX[r] = 62 + i * 32; });
+  var GX = 450, GW = 46, ORX = 590, ORW = 58, OUTX = 770;
+  var y = 104, rowsEnd;
+
+  OUTS.forEach(function (o) {
+    var centers = [];
+    o.terms.forEach(function (t, i) {
+      var id = o.name + '_' + i;
+      if (t.length === 1) {
+        var cy = y + 12;
+        dot(RX[t[0]], cy, t[0]);
+        wire('M' + RX[t[0]] + ' ' + cy + ' H' + (ORX + 14), t[0]);
+        txt(GX + GW / 2, cy - 6, 'direto', 'term-lbl');
+        centers.push(cy); y += 26;
+      } else {
+        var H = (t.length - 1) * 13 + 18, top = y + 2, cy2 = top + H / 2;
+        t.forEach(function (l, j) {
+          var yi = top + 9 + j * 13;
+          dot(RX[l], yi, l);
+          wire('M' + RX[l] + ' ' + yi + ' H' + GX, l);
+        });
+        mk('path', { d: 'M' + GX + ' ' + top + ' H' + (GX + GW - H / 2) + ' A' + H / 2 + ' ' + H / 2 + ' 0 0 1 ' + (GX + GW - H / 2) + ' ' + (top + H) + ' H' + GX + ' Z', 'class': 'g', 'data-sig': id }, layers.parts);
+        wire('M' + (GX + GW) + ' ' + cy2 + ' H' + (ORX + 14), id);
+        txt(GX + GW + 8, cy2 - 6, t.map(pretty).join(''), 'term-lbl', 'start');
+        centers.push(cy2); y += H + 8;
+      }
+    });
+    var top2 = centers[0] - 13, bot = centers[1] + 13, mid = (top2 + bot) / 2;
+    mk('path', { d: 'M' + ORX + ' ' + top2 +
+      ' Q' + (ORX + 16) + ' ' + mid + ' ' + ORX + ' ' + bot +
+      ' Q' + (ORX + ORW * 0.62) + ' ' + bot + ' ' + (ORX + ORW) + ' ' + mid +
+      ' Q' + (ORX + ORW * 0.62) + ' ' + top2 + ' ' + ORX + ' ' + top2 + ' Z', 'class': 'g', 'data-sig': o.name }, layers.parts);
+    wire('M' + (ORX + ORW) + ' ' + mid + ' H' + (OUTX - 12), o.name);
+    mk('circle', { cx: OUTX, cy: mid, r: 10, 'class': 'ledc', 'data-sig': o.name }, layers.parts);
+    txt(OUTX + 22, mid + 5, o.name, 'out-lbl', 'start');
+    txt(OUTX + 52, mid + 5, '0', 'val', 'start', 'v:' + o.name);
+    y += 16;
+  });
+  rowsEnd = y - 12;
+
+  VARS.forEach(function (v) {
+    var x = RX[v], xn = RX[v + "'"];
+    txt(x, 18, v, 'in-lbl');
+    txt(x, 92, '0', 'val', 'middle', 'v:' + v);
+    wire('M' + x + ' 26 V' + rowsEnd, v);
+    wire('M' + x + ' 42 H' + xn + ' V50', v);
+    dot(x, 42, v);
+    mk('path', { d: 'M' + (xn - 7) + ' 50 H' + (xn + 7) + ' L' + xn + ' 63 Z', 'class': 'inv', 'data-sig': v + "'" }, layers.parts);
+    mk('circle', { cx: xn, cy: 66.5, r: 3.5, 'class': 'inv', 'data-sig': v + "'" }, layers.parts);
+    wire('M' + xn + ' 70 V' + rowsEnd, v + "'");
+    txt(xn + 2, 92, v + '′', 'val', 'middle');
+  });
+  svg.setAttribute('viewBox', '0 0 840 ' + (rowsEnd + 14));
+
+  /* ---------- render ---------- */
+  function render() {
+    var sig = evaluate(s), code = toCode(s), out = outCode(sig);
+    var ones = code.split('').filter(function (c) { return c === '1'; }).length;
+    var d = CODES.indexOf(code), jd = JOHN.indexOf(out);
+
+    VARS.forEach(function (v) {
+      var b = document.getElementById('sw-' + v);
+      b.setAttribute('aria-pressed', s[v] ? 'true' : 'false');
+      b.querySelector('.bit').textContent = s[v];
+    });
+    OUTS.forEach(function (o) {
+      var l = document.getElementById('led-' + o.name);
+      l.classList.toggle('on', !!sig[o.name]);
+      l.querySelector('.bit').textContent = sig[o.name];
+    });
+    document.querySelectorAll('[data-sig]').forEach(function (e) {
+      var k = e.getAttribute('data-sig');
+      if (k.indexOf('v:') === 0) { var val = sig[k.slice(2)]; e.textContent = val; e.classList.toggle('on', !!val); return; }
+      e.classList.toggle('on', !!sig[k]);
+      if (e.classList.contains('res')) e.textContent = sig[k];
+    });
+
+    var digit = document.getElementById('digit'), chip = document.getElementById('validity');
+    if (d >= 0) {
+      digit.textContent = d; digit.classList.remove('na');
+      chip.className = 'chip ok'; chip.textContent = 'Entrada válida · dois bits em 1';
+    } else {
+      digit.textContent = '–'; digit.classList.add('na');
+      chip.className = 'chip warn'; chip.textContent = 'Fora do código · ' + ones + (ones === 1 ? ' bit' : ' bits') + ' em 1';
+    }
+    document.getElementById('codeLine').innerHTML = 'ABCDE <b>' + code + '</b> → S4…S0 <b>' + out + '</b>';
+
+    var spans = jbar.children;
+    for (var i = 0; i < 10; i++) {
+      spans[i].className = (jd >= 0 && i <= jd && jd > 0 ? 'on' : '') + (i === jd ? ' cur' : '');
+    }
+    document.getElementById('johnsonText').textContent = jd >= 0
+      ? 'Johnson ' + out + ' = dígito ' + jd + (d < 0 ? ' (resultado sem significado: entrada inválida)' : '')
+      : 'Saída ' + out + ' não pertence ao código Johnson (entrada inválida).';
+
+    tbody.querySelectorAll('tr').forEach(function (tr) { tr.classList.toggle('cur', tr.dataset.code === code); });
+    if (BRD) BRD.update(sig);
+  }
+
+  /* ---------- controls ---------- */
+  var timer = null, playBtn = document.getElementById('play');
+  function current() { var d = CODES.indexOf(toCode(s)); return d; }
+  function step(delta) { var d = current(); d = d < 0 ? (delta > 0 ? 0 : 9) : (d + delta + 10) % 10; s = fromCode(CODES[d]); render(); }
+  function stop() { if (timer) { clearInterval(timer); timer = null; playBtn.textContent = 'Percorrer 0–9'; } }
+  playBtn.addEventListener('click', function () {
+    if (timer) { stop(); return; }
+    playBtn.textContent = 'Pausar'; step(1);
+    timer = setInterval(function () { step(1); }, 1100);
+  });
+  document.getElementById('prev').addEventListener('click', function () { stop(); step(-1); });
+  document.getElementById('next').addEventListener('click', function () { stop(); step(1); });
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var k = e.key.toUpperCase();
+    if (VARS.indexOf(k) >= 0) { stop(); s[k] = 1 - s[k]; render(); }
+    else if (/^[0-9]$/.test(e.key)) { stop(); s = fromCode(CODES[+e.key]); render(); }
+  });
+
+  /* ---------- montagem no Constructor ---------- */
+  // LEDs lidos na tela do Constructor para cada dígito (teste de 21/11/2026)
+  var MEASURED = ['00000','00001','00011','00111','01111','11111','11110','11100','11000','10000'];
+  var runs = document.getElementById('runs');
+  MEASURED.forEach(function (m, d) {
+    var ok = m === JOHN[d];
+    var el = document.createElement('div'); el.className = 'run';
+    el.innerHTML = '<span class="d">' + d + '<span>' + (ok ? '✓' : '✗') + '</span></span><span class="b">' + CODES[d] + '</span><span class="b">' + m + '</span>';
+    runs.appendChild(el);
+  });
+
+  var NETS = [
+    ['A', '#FFE600', 'chave 1', 'U1-1, U2-4, U4-3, U5-1'],
+    ['B', '#22C55E', 'chave 2', 'U1-3, U2-10, U4-2'],
+    ['C', '#22D3EE', 'chave 3', 'U1-5'],
+    ['D', '#FF8000', 'chave 4', 'U1-9'],
+    ['E', '#FF80C0', 'chave 5', 'U1-11, U4-9'],
+    ['A′', '#FFE600', 'U1-2', 'U2-9, U2-12, U3-1, U4-1'],
+    ['B′', '#22C55E', 'U1-4', 'U2-5, U4-4'],
+    ['C′', '#22D3EE', 'U1-6', 'U4-5, U4-10'],
+    ['D′', '#FF8000', 'U1-8', 'U2-1, U3-2, U4-11'],
+    ['E′', '#FF80C0', 'U1-10', 'U2-2, U2-13, U4-13'],
+    ['D′E′', '#FF8080', 'U2-3', 'U5-2'],
+    ['AB′', '#FF8080', 'U2-6', 'U5-4'],
+    ['A′B', '#FF8080', 'U2-8', 'U5-9'],
+    ['A′E′', '#FF8080', 'U2-11', 'U5-12, U6-2'],
+    ['A′D′', '#FF8080', 'U3-3', 'U6-1'],
+    ['A′BE′', '#FF8080', 'U4-12', 'U5-5'],
+    ['AB′C′', '#FF8080', 'U4-6', 'U5-10'],
+    ['EC′D′', '#FF8080', 'U4-8', 'U5-13'],
+    ['S4', '#2563EB', 'U5-3', 'LED 1'],
+    ['S3', '#2563EB', 'U5-6', 'LED 2'],
+    ['S2', '#2563EB', 'U5-8', 'LED 3'],
+    ['S1', '#2563EB', 'U5-11', 'LED 4'],
+    ['S0', '#2563EB', 'U6-3', 'LED 5']
+  ];
+  var nb = document.getElementById('netBody');
+  NETS.forEach(function (n) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><i style="background:' + n[1] + '"></i>' + n[0] + '</td><td>' + n[2] + '</td><td>' + n[3] + '</td>';
+    nb.appendChild(tr);
+  });
+
+  var fileText = document.getElementById('cvcFile').textContent.replace(/^\n/, '');
+  var pre = document.getElementById('filePre'); pre.textContent = fileText;
+  var copyBtn = document.getElementById('copyFile');
+  copyBtn.addEventListener('click', function () {
+    function selectPre() { var r = document.createRange(); r.selectNodeContents(pre); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+    try {
+      navigator.clipboard.writeText(fileText).then(function () { copyBtn.textContent = 'Copiado'; }, function () { selectPre(); copyBtn.textContent = 'Texto selecionado: use Ctrl+C'; });
+    } catch (e) { selectPre(); copyBtn.textContent = 'Texto selecionado: use Ctrl+C'; }
+  });
+
+  /* ---------- protoboard interativa: passo a passo ---------- */
+  var BRD = (function () {
+    var svgB = document.getElementById('board');
+    var lines = fileText.split(/\r?\n/);
+    var nb = +lines[1], wi = 2 + nb + 1, nw = +lines[wi], wires = [];
+    for (var i = 0; i < nw; i++) {
+      var tk = lines[wi + 1 + i].trim().split(/\s+/).map(Number), pts = [];
+      for (var j = 0; j < 6; j++) pts.push(tk[2 + 2 * j] + ',' + tk[3 + 2 * j]);
+      wires.push({ color: tk[0], pts: pts.join(' ') });
+    }
+    var ci = wi + 1 + nw, nc = +lines[ci], chipsF = [];
+    for (i = 0; i < nc; i++) { var t = lines[ci + 1 + i].trim().split(/\s+/).map(Number); chipsF.push({ code: t[0], x: t[3], y: t[4] }); }
+
+    function css(c) { var r = c & 255, g = (c >> 8) & 255, b = (c >> 16) & 255; return 'rgb(' + r + ',' + g + ',' + b + ')'; }
+    function node(tag, attrs, parent, text) { var e = mk(tag, attrs, parent); if (text != null) e.textContent = text; return e; }
+    function tip(e, str) { node('title', {}, e, str); return e; }
+
+    // rede de cada fio, na ordem em que o gerador grava
+    var WNET = [];
+    for (i = 0; i < 19; i++) WNET.push('PWR');
+    [['A',4],['B',3],['C',1],['D',1],['E',2],['A′',4],['B′',2],['C′',2],['D′',3],['E′',3],
+     ['D′E′',1],['AB′',1],['A′B',1],['A′E′',2],['A′D′',1],['A′BE′',1],['AB′C′',1],['EC′D′',1],
+     ['S4',1],['S3',1],['S2',1],['S1',1],['S0',1]].forEach(function (p) { for (var k = 0; k < p[1]; k++) WNET.push(p[0]); });
+    var SIGKEY = { 'A′': "A'", 'B′': "B'", 'C′': "C'", 'D′': "D'", 'E′': "E'", 'D′E′': 'S4_1', 'AB′': 'S3_0', 'A′B': 'S2_0',
+      'A′E′': 'S1_0', 'A′D′': 'S0_0', 'A′BE′': 'S3_1', 'AB′C′': 'S2_1', 'EC′D′': 'S1_1' };
+    function wstep(i) { return i < 7 ? 1 : i < 19 ? 3 : i < 30 ? 4 : i < 44 ? 5 : i < 53 ? 6 : 7; }
+    var netInfo = {}; NETS.forEach(function (n) { netInfo[n[0]] = n; });
+
+    var gB = node('g', {}, svgB), gC = node('g', {}, svgB), gW = node('g', {}, svgB), gT = node('g', {}, svgB);
+    var items = [];
+    function reg(e, step, keep) { e.dataset.step = step; if (keep) e.dataset.keep = '1'; items.push(e); return e; }
+    function hole(p, x, y) { node('rect', { x: x - 3.5, y: y - 3.5, width: 7, height: 7, 'class': 'bh' }, p); }
+
+    // fonte DC
+    var f = reg(node('g', {}, gB), 0, true); tip(f, 'Fonte DC: VCC (vermelho) e GND (preto)');
+    node('rect', { x: 8, y: 196, width: 77, height: 128, rx: 4, 'class': 'bp' }, f);
+    node('text', { x: 34, y: 218, 'class': 'bt vcc', 'text-anchor': 'middle' }, f, 'VCC');
+    var fLed = node('circle', { cx: 34, cy: 236, r: 7, 'class': 'bled' }, f);
+    node('rect', { x: 28, y: 252, width: 12, height: 22, 'class': 'bsw' }, f);
+    node('text', { x: 34, y: 312, 'class': 'bt', 'text-anchor': 'middle' }, f, 'GND');
+    node('rect', { x: 62, y: 203, width: 14, height: 53, rx: 2, fill: '#E02020' }, f);
+    node('rect', { x: 62, y: 263, width: 14, height: 53, rx: 2, fill: '#111' }, f);
+    for (i = 0; i < 4; i++) { hole(f, 69, 210 + 13 * i); hole(f, 69, 270 + 13 * i); }
+
+    // protoboard
+    var pb = reg(node('g', {}, gB), 0, true);
+    node('rect', { x: 104, y: 128, width: 877, height: 276, rx: 8, 'class': 'bp' }, pb);
+    node('line', { x1: 112, y1: 166, x2: 974, y2: 166, stroke: '#E02020', 'stroke-width': 1.5 }, pb);
+    node('line', { x1: 112, y1: 363, x2: 974, y2: 363, stroke: '#2050E0', 'stroke-width': 1.5 }, pb);
+    node('rect', { x: 112, y: 259, width: 862, height: 13, fill: '#CFCFCF' }, pb);
+    for (var c = 1; c <= 64; c++) {
+      var x = 118 + 13 * c;
+      [194, 207, 220, 233, 246, 285, 298, 311, 324, 337].forEach(function (y) { hole(pb, x, y); });
+      if (c >= 3 && c <= 62) [142, 155, 376, 389].forEach(function (y) { hole(pb, x, y); });
+      if (c === 1 || c % 5 === 0 || c === 64) { node('text', { x: x, y: 182, 'class': 'bn', 'text-anchor': 'middle' }, pb, c); node('text', { x: x, y: 357, 'class': 'bn', 'text-anchor': 'middle' }, pb, c); }
+    }
+    'ABCDE'.split('').forEach(function (l, k) { node('text', { x: 121, y: 198 + 13 * k, 'class': 'bn', 'text-anchor': 'middle' }, pb, l); });
+    'FGHIJ'.split('').forEach(function (l, k) { node('text', { x: 121, y: 289 + 13 * k, 'class': 'bn', 'text-anchor': 'middle' }, pb, l); });
+
+    // interruptores
+    var sb = reg(node('g', {}, gB), 0, true);
+    node('rect', { x: 173, y: 462, width: 206, height: 81, rx: 8, 'class': 'bp' }, sb);
+    node('text', { x: 198, y: 504, 'class': 'bt vcc', 'text-anchor': 'middle' }, sb, 'VCC');
+    node('text', { x: 198, y: 531, 'class': 'bt', 'text-anchor': 'middle' }, sb, 'GND');
+    hole(sb, 188, 473); hole(sb, 188, 531);
+    var knobs = [];
+    for (var k = 0; k < 8; k++) {
+      var sx = 229 + 19 * k, sg = node('g', { 'class': k < 5 ? 'swc' : '' }, sb);
+      [473, 486, 499].forEach(function (y) { hole(sg, sx, y); });
+      node('rect', { x: sx - 7, y: 507, width: 14, height: 28, 'class': 'btog' }, sg);
+      knobs.push(node('rect', { x: sx - 5, y: 509, width: 10, height: 12, fill: '#111' }, sg));
+      if (k < 5) {
+        node('text', { x: sx, y: 556, 'class': 'bt', 'text-anchor': 'middle' }, sg, VARS[k]);
+        tip(sg, 'Chave ' + (k + 1) + ' = entrada ' + VARS[k] + ' (clique para alternar)');
+        (function (v) { sg.addEventListener('click', function () { stop(); s[v] = 1 - s[v]; render(); }); })(VARS[k]);
+      }
+    }
+
+    // LEDs
+    var lb = reg(node('g', {}, gB), 0, true);
+    node('rect', { x: 343, y: 31, width: 203, height: 58, rx: 8, 'class': 'bp' }, lb);
+    hole(lb, 354, 68);
+    var leds = [];
+    for (k = 0; k < 8; k++) {
+      leds.push(tip(node('circle', { cx: 389 + 20 * k, cy: 52, r: 8, 'class': 'bled' }, lb), k < 5 ? 'LED ' + (k + 1) + ' = ' + OUTS[k].name : 'LED ' + (k + 1) + ' (sem uso)'));
+      hole(lb, 389 + 20 * k, 75);
+      if (k < 5) node('text', { x: 389 + 20 * k, y: 26, 'class': 'bn', 'text-anchor': 'middle' }, lb, OUTS[k].name);
+    }
+
+    // CIs
+    var CHIPNAME = { 7004: '74LS04', 7008: '74LS08', 7011: '74LS11', 7032: '74LS32' };
+    var CHIPDESC = { 7004: '6 inversores', 7008: '4 AND de 2 entradas', 7011: '3 AND de 3 entradas', 7032: '4 OR de 2 entradas' };
+    chipsF.forEach(function (ch, n) {
+      var x0 = ch.x - 2, g = reg(node('g', {}, gC), 2, true);
+      tip(g, 'U' + (n + 1) + ' · ' + CHIPNAME[ch.code] + ' (' + CHIPDESC[ch.code] + '). Pino 1 embaixo à esquerda, pino 14 em cima à esquerda.');
+      for (var p = 0; p < 7; p++) { var px = ch.x + 6 + 13 * p;
+        node('rect', { x: px - 3, y: 243, width: 6, height: 9, fill: '#B8B8B8' }, g);
+        node('rect', { x: px - 3, y: 279, width: 6, height: 9, fill: '#B8B8B8' }, g); }
+      node('rect', { x: x0, y: 250, width: 94, height: 31, rx: 2, fill: '#1C1C1C' }, g);
+      node('circle', { cx: x0 + 7, cy: 274, r: 2.5, fill: '#777' }, g);
+      node('path', { d: 'M' + x0 + ' 260 a5 5 0 0 1 0 11', fill: '#CFCFCF' }, g);
+      node('text', { x: x0 + 50, y: 270, 'class': 'bic', 'text-anchor': 'middle' }, g, 'U' + (n + 1) + ' ' + CHIPNAME[ch.code]);
+    });
+
+    // fios
+    var wEls = wires.map(function (w, i) {
+      var g = reg(node('g', { 'class': 'bw' }, gW), wstep(i));
+      node('polyline', { points: w.pts, 'class': 'wo', pathLength: 1 }, g);
+      node('polyline', { points: w.pts, 'class': 'wc', stroke: css(w.color), pathLength: 1 }, g);
+      var net = WNET[i], info = netInfo[net];
+      tip(g, net === 'PWR' ? (w.color === 255 ? 'VCC (+5 V)' : 'GND') : net + ': ' + info[2] + ' → ' + info[3]);
+      g.dataset.net = net;
+      return g;
+    });
+
+    var STEPS = [
+      { t: 'Placas', d: 'Coloque a fonte DC à esquerda, a protoboard no centro, a placa de interruptores embaixo e a placa de LEDs em cima.',
+        l: ['Fonte DC: VCC e GND', 'Protoboard: 64 colunas, fileiras A–J', 'Interruptores: chaves 1–5 = A, B, C, D, E', 'LEDs: 1–5 = S4, S3, S2, S1, S0'] },
+      { t: 'Alimentação', d: 'Leve VCC (vermelho) e GND (preto) da fonte aos barramentos de cima e de baixo. Alimente também a placa de interruptores e o GND dos LEDs.',
+        l: ['VCC → barramento vermelho (cima e baixo)', 'GND → barramento azul (cima e baixo)', 'Interruptores: VCC e GND', 'LEDs: GND'] },
+      { t: 'Circuitos integrados', d: 'Encaixe os 6 CIs sobre o canal central, com o chanfro voltado para a esquerda.',
+        l: ['U1 · 74LS04 · colunas 6–12', 'U2 · 74LS08 · colunas 15–21', 'U3 · 74LS08 · colunas 24–30', 'U4 · 74LS11 · colunas 33–39', 'U5 · 74LS32 · colunas 42–48', 'U6 · 74LS32 · colunas 51–57'] },
+      { t: 'VCC e GND dos CIs', d: 'Em cada CI, ligue o pino 14 (em cima, à esquerda) ao VCC e o pino 7 (embaixo, à direita) ao GND.',
+        l: ['Pino 14 → barramento VCC', 'Pino 7 → barramento GND', 'Repita em U1 a U6'] },
+      { t: 'Entradas A–E', d: 'Ligue as 5 primeiras chaves às entradas do 7404 e às portas que usam a variável direta. Cada fio segue em cadeia de um pino ao próximo.', nets: ['A', 'B', 'C', 'D', 'E'] },
+      { t: 'Complementos A′–E′', d: 'Leve as saídas do 7404 (U1) às portas AND que usam a variável negada.', nets: ['A′', 'B′', 'C′', 'D′', 'E′'] },
+      { t: 'Produtos → portas OR', d: 'Ligue a saída de cada AND à entrada do OR da sua saída. O produto A′E′ vai para S1 e S0. Em S4, a variável A entra direto no OR (passo 5).', nets: ['D′E′', 'AB′', 'A′B', 'A′E′', 'A′D′', 'A′BE′', 'AB′C′', 'EC′D′'] },
+      { t: 'Saídas → LEDs', d: 'Leve a saída de cada OR aos 5 primeiros LEDs.', nets: ['S4', 'S3', 'S2', 'S1', 'S0'] },
+      { t: 'Testar', d: 'A fonte está ligada. Clique nas chaves A–E da placa de baixo (ou use as chaves do topo da página) e veja os LEDs. Fios em nível 0 ficam apagados.', test: true }
+    ];
+    var cur = 0, lastSig = null;
+    var stepOl = document.getElementById('bSteps');
+    STEPS.forEach(function (st, i) {
+      var li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button'; b.textContent = st.t; b.addEventListener('click', function () { go(i); });
+      li.appendChild(b); stepOl.appendChild(li);
+    });
+    document.getElementById('bPrev').addEventListener('click', function () { go(cur - 1); });
+    document.getElementById('bNext').addEventListener('click', function () { go(cur + 1); });
+
+    function go(i) {
+      cur = Math.max(0, Math.min(STEPS.length - 1, i));
+      var st = STEPS[cur], test = !!st.test;
+      document.getElementById('bCount').textContent = 'Passo ' + (cur + 1) + ' de ' + STEPS.length;
+      document.getElementById('bTitle').textContent = st.t;
+      document.getElementById('bDesc').textContent = st.d;
+      var ul = document.getElementById('bList'); ul.innerHTML = '';
+      (st.nets ? st.nets.map(function (n) { var x = netInfo[n]; return '<i style="background:' + x[1] + '"></i><b>' + n + '</b> ' + x[2] + ' → ' + x[3]; }) : (st.l || []))
+        .forEach(function (h) { var li = document.createElement('li'); li.innerHTML = h; ul.appendChild(li); });
+      if (test && lastSig) {
+        var li = document.createElement('li');
+        li.innerHTML = 'Entrada <b>' + toCode(s) + '</b> → LEDs <b>' + outCode(lastSig) + '</b>'; ul.appendChild(li);
+      }
+      Array.prototype.forEach.call(stepOl.children, function (li, k) { li.classList.toggle('cur', k === cur); li.classList.toggle('done', k < cur); });
+      document.getElementById('bPrev').disabled = cur === 0;
+      document.getElementById('bNext').disabled = cur === STEPS.length - 1;
+      document.getElementById('bHint').textContent = test ? 'Modo teste: clique nas chaves A–E na placa de baixo.' : 'Passe o mouse sobre um fio ou CI para ver a ligação. Fios novos aparecem desenhados.';
+
+      items.forEach(function (e) { e.classList.remove('new'); });
+      void svgB.getBoundingClientRect();
+      items.forEach(function (e) {
+        var sp = +e.dataset.step;
+        e.classList.toggle('fut', !test && sp > cur);
+        e.classList.toggle('past', !test && sp < cur && !e.dataset.keep);
+        if (!test && sp === cur && e.classList.contains('bw')) e.classList.add('new');
+      });
+      paint();
+    }
+
+    function paint() {
+      var test = !!STEPS[cur].test, sig = lastSig;
+      if (!sig) return;
+      VARS.forEach(function (v, k) { knobs[k].setAttribute('y', s[v] ? 521 : 509); });
+      fLed.classList.toggle('on', test);
+      leds.forEach(function (l, k) { l.classList.toggle('on', test && k < 5 && !!sig[OUTS[k].name]); });
+      wEls.forEach(function (g) {
+        var n = g.dataset.net, key = n === 'PWR' ? null : (SIGKEY[n] || n);
+        g.classList.toggle('low', test && key !== null && !sig[key]);
+      });
+    }
+
+    return { update: function (sig) { lastSig = sig; if (STEPS[cur].test) go(cur); else paint(); }, go: go };
+  })();
+  BRD.go(0);
+
+  render();
+});
+</script>
+<script type="text/plain" id="cvcFile">
+Version 0.9.7
+5
+ 4 8 196 77 128 0 1
+ 5 80 400 206 81 2 2
+ 0 104 128 877 276 8 3
+ 1 173 462 206 81 140 4
+ 3 343 31 203 58 150 5
+ 0
+58
+ 65793 5 157 142 157 142 107 142 107 270 69 270 69 270 0 3 0 1
+ 65793 5 157 389 157 389 69 389 69 389 69 309 69 309 0 3 0 1
+ 255 5 69 210 69 210 69 155 69 155 157 155 157 155 0 1 0 3
+ 255 5 69 223 69 223 96 223 96 376 157 376 157 376 0 1 0 3
+ 255 5 188 473 188 473 182 473 182 376 170 376 170 376 0 4 0 3
+ 0 5 170 389 170 389 165 389 165 531 188 531 188 531 0 3 0 4
+ 65793 5 354 68 354 68 354 68 326 68 326 142 326 142 0 5 0 3
+ 255 5 196 194 196 194 196 194 196 155 196 155 196 155 0 3 0 3
+ 65793 5 274 337 274 337 274 337 274 389 274 389 274 389 0 3 0 3
+ 255 5 313 194 313 194 313 194 313 155 313 155 313 155 0 3 0 3
+ 65793 5 391 337 391 337 391 337 391 389 391 389 391 389 0 3 0 3
+ 255 5 430 194 430 194 430 194 430 155 430 155 430 155 0 3 0 3
+ 65793 5 508 337 508 337 508 337 508 389 508 389 508 389 0 3 0 3
+ 255 5 547 194 547 194 547 194 547 155 547 155 547 155 0 3 0 3
+ 65793 5 625 337 625 337 625 337 625 389 625 389 625 389 0 3 0 3
+ 255 5 664 194 664 194 664 194 664 155 664 155 664 155 0 3 0 3
+ 65793 5 742 337 742 337 742 337 742 389 742 389 742 389 0 3 0 3
+ 255 5 781 194 781 194 781 194 781 155 781 155 781 155 0 3 0 3
+ 65793 5 859 337 859 337 859 337 859 389 859 389 859 389 0 3 0 3
+ 65535 5 229 473 229 473 229 412 196 412 196 337 196 337 0 4 0 3
+ 65535 5 196 324 196 324 196 337 352 337 352 337 352 337 0 3 0 3
+ 65535 5 352 324 352 324 352 337 573 337 573 337 573 337 0 3 0 3
+ 65535 5 573 324 573 324 573 337 664 337 664 337 664 337 0 3 0 3
+ 65280 5 248 473 248 473 248 421 222 421 222 337 222 337 0 4 0 3
+ 65280 5 222 324 222 324 222 194 365 194 365 194 365 194 0 3 0 3
+ 65280 5 365 207 365 207 365 337 560 337 560 337 560 337 0 3 0 3
+ 16776960 5 267 473 267 473 267 430 248 430 248 337 248 337 0 4 0 3
+ 33023 5 286 473 286 473 286 439 261 439 261 194 261 194 0 4 0 3
+ 12615935 5 305 473 305 473 305 448 235 448 235 194 235 194 0 4 0 3
+ 12615935 5 235 207 235 207 235 194 612 194 612 194 612 194 0 3 0 3
+ 65535 5 209 337 209 337 209 194 378 194 378 194 378 194 0 3 0 3
+ 65535 5 378 207 378 207 378 194 339 194 339 194 339 194 0 3 0 3
+ 65535 5 339 207 339 207 339 337 430 337 430 337 430 337 0 3 0 3
+ 65535 5 430 324 430 324 430 337 547 337 547 337 547 337 0 3 0 3
+ 65280 5 235 337 235 337 235 347 365 347 365 337 365 337 0 3 0 3
+ 65280 5 365 324 365 324 365 337 586 337 586 337 586 337 0 3 0 3
+ 16776960 5 261 337 261 337 261 343 599 343 599 337 599 337 0 3 0 3
+ 16776960 5 599 324 599 324 599 194 599 194 599 194 599 194 0 3 0 3
+ 33023 5 274 194 274 194 274 337 313 337 313 337 313 337 0 3 0 3
+ 33023 5 313 324 313 324 313 337 443 337 443 337 443 337 0 3 0 3
+ 33023 5 443 324 443 324 443 194 586 194 586 194 586 194 0 3 0 3
+ 12615935 5 248 194 248 194 248 337 326 337 326 337 326 337 0 3 0 3
+ 12615935 5 326 324 326 324 326 194 326 194 326 194 326 194 0 3 0 3
+ 12615935 5 326 207 326 207 326 194 560 194 560 194 560 194 0 3 0 3
+ 8421631 5 339 337 339 337 339 343 677 343 677 337 677 337 0 3 0 3
+ 8421631 5 378 337 378 337 378 345 703 345 703 337 703 337 0 3 0 3
+ 8421631 5 391 194 391 194 391 184 729 184 729 194 729 194 0 3 0 3
+ 8421631 5 352 194 352 194 352 190 690 190 690 194 690 194 0 3 0 3
+ 8421631 5 690 207 690 207 690 337 794 337 794 337 794 337 0 3 0 3
+ 8421631 5 456 337 456 337 456 345 781 345 781 337 781 337 0 3 0 3
+ 8421631 5 573 194 573 194 573 337 716 337 716 337 716 337 0 3 0 3
+ 8421631 5 612 337 612 337 612 194 716 194 716 194 716 194 0 3 0 3
+ 8421631 5 625 194 625 194 625 188 677 188 677 194 677 194 0 3 0 3
+ 16711680 5 690 337 690 337 690 96 389 96 389 75 389 75 0 3 0 5
+ 16711680 5 729 337 729 337 729 102 409 102 409 75 409 75 0 3 0 5
+ 16711680 5 742 194 742 194 742 108 429 108 429 75 429 75 0 3 0 5
+ 16711680 5 703 194 703 194 703 114 449 114 449 75 449 75 0 3 0 5
+ 16711680 5 807 337 807 337 807 120 469 120 469 75 469 75 0 3 0 5
+6
+ 7004 1 14 190 246 5 0 0 7076 3
+ 7008 1 14 307 246 5 0 0 7076 3
+ 7008 1 14 424 246 5 0 0 7076 3
+ 7011 1 14 541 246 5 0 0 7076 3
+ 7032 1 14 658 246 5 0 0 7076 3
+ 7032 1 14 775 246 5 0 0 7076 3
+</script>
+</body>
+</html>
