@@ -1,0 +1,6 @@
+# Programa de terceiros (Constructor Virtual, tourdigital.net) — não versionar
+*.exe
+
+# Sistema
+Thumbs.db
+desktop.ini
